@@ -9,3 +9,4 @@
 - Git: repo initialized and first commit created
 - Docker: can run a container and remove it
 - Compose: can parse docker-compose.yml without YAML errors
+- HTTP client: curl can fetch a public webpage
