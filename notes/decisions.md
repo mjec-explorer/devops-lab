@@ -14,3 +14,10 @@ I chose WSL2 Ubuntu (22.04) as my DevOps lab environment because it gives me a r
 
 ## Rules going forward
 - Keep the project inside the Linux filesystem (e.g., ~/devops_lab), not /mnt/c/...
+
+## Reverse proxy choice (nginx)
+I added nginx as a reverse proxy to simulate a production-style entrypoint:
+- Only nginx is exposed to the host (port 80)
+- Backend services stay private inside the Docker network
+- nginx routes traffic to the app via Docker DNS (`app:5678`)
+
