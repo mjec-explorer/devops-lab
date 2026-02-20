@@ -1,49 +1,115 @@
-## Definition of Done (per phase)
+# DevOps Lab — From Scratch Infrastructure
 
-### Phase 0 — Lab foundation
-- Repo has first commit and clean git status
-- `notes/decisions.md` explains environment choice and tradeoffs
-- `notes/verification.md` captures tool versions and sanity checks
+This repository documents a phased DevOps infrastructure project built from scratch using containerized services.
 
-### Phase 1 — App + reverse proxy (nginx)
-- `docker compose ps` shows `nginx` and `app` as **Up**
-- `nginx` publishes `0.0.0.0:80->80/tcp`
-- `app` has **no host port mapping** (shows `5678/tcp` only)
-- `curl -i http://localhost` returns:
-  - `HTTP/1.1 200 OK`
-  - header `Server: nginx`
-  - body contains `Hello World!`
+## Goals
 
-### Phase 2 — Monitoring
-- Prometheus can scrape targets and shows them as `UP`
-- Grafana can load and display at least one dashboard with live metrics
+- Practice production-style service architecture
+- Implement reverse proxy, monitoring, alerting, and incident workflows
+- Build everything reproducibly using Docker Compose
+- Document each phase as an infra portfolio artifact
 
-### Phase 3 — Alerting
-- When the app is stopped, an alert fires within a defined time window
-- Alert is delivered to a notification channel (start with Slack/email)
+---
 
-### Phase 4 — Incident workflow
-- “App down” creates an incident record (even if manual at first)
-- Runbook exists with commands to verify and restore service
-
-### Phase 5 — Documentation quality gate
 ## Current Architecture (Phase 1)
 
 Traffic flow:
 
-Client (host) → nginx (port 80) → app (internal Docker network, port 5678)
+Client (host)
+   ↓
+nginx (port 80 exposed)
+   ↓
+app (internal Docker network, port 5678)
 
-- Only **nginx** is exposed to the host on port **80**.
-- The **app** is **not exposed** to the host (no published ports). It is reachable only inside the Compose network.
-- nginx proxies all `/` requests to `http://app:5678`.
+### Design Summary
 
-## How to run (Phase 1)
+- nginx acts as the public gateway (port 80 exposed)
+- Backend services remain internal
+- Traffic is routed via Docker DNS (`app:5678`)
 
-Start:
-- `docker compose up -d`
+---
 
-Verify:
-- `curl -i http://localhost` returns `200 OK` and the body `Hello World!`
+## Repository Structure
+devops_lab/
+├── docker-compose.yml
+├── nginx/
+│ └── default.conf
+├── notes/
+│ ├── decisions.md
+│ └── verification.md
+└── README.md
 
-Stop:
-- `docker compose down`
+## How to Run (Phase 1)
+
+Start the stack:
+ `docker compose up -d`
+
+Verify services:
+ `docker compose ps`
+ `curl -i http://localhost`
+
+Expected Results:
+- nginx → Up → `0.0.0.0:80->80/tcp`
+- app → Up → `5678/tcp` only
+- Curl returns `Hello World!`
+
+Stop service:
+ `docker compose down`
+
+## Definition of Done
+
+### Phase 0 — Lab Foundation
+
+- Git repo initialized
+- Clean commit history
+- Environment documented
+- Docker + Compose verified
+
+### Phase 1 — App + Reverse Proxy
+
+- nginx proxies traffic to internal app
+- app not publicly exposed
+- curl via localhost returns app response
+- Direct access to app host port fails
+
+### Phase 2 — Monitoring
+
+- Prometheus scrapes targets
+- Grafana dashboard shows metrics
+
+### Phase 3 — Alerting
+
+- App stop triggers alert
+- Notification delivered
+
+### Phase 4 — Incident Workflow
+
+- Runbook exists
+- Recovery steps documented
+
+### Phase 5 — Documentation Quality Gate
+
+- Stack reproducible from repo only
+- No undocumented manual steps
+
+---
+
+## Networking Model
+
+Public:
+
+Host → nginx:80
+
+Internal:
+
+nginx → app:5678
+
+---
+
+## Next Phases
+
+- Monitoring stack
+- Observability dashboards
+- Alert routing
+- Incident simulations
+
