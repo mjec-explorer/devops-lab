@@ -18,19 +18,7 @@ pipeline {
       steps {
         sh '''
           set -eux
-          echo "WORKSPACE=$WORKSPACE"
-          ls -la
-          ls -la app
-
-          docker run --rm \
-            -v "$WORKSPACE/app":/app \
-            -w /app \
-            python:3.12-slim bash -lc '
-              set -eux
-              ls -la
-              pip install -r requirements.txt
-              pytest -q
-            '
+          docker build --target test -t devops-lab-app:test ./app
         '''
       }
     }
@@ -41,7 +29,7 @@ pipeline {
           set -eux
           GIT_SHA=$(git rev-parse --short HEAD)
           echo "$GIT_SHA" > .gitsha
-          docker build -t "$IMAGE:$GIT_SHA" -t "$IMAGE:latest" ./app
+          docker build --target runtime "$IMAGE:$GIT_SHA" -t "$IMAGE:latest" ./app
         '''
       }
     }
