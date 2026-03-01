@@ -1,0 +1,15 @@
+#Secrets
+secrets/
+.env
+
+#Python
+__pycache__/
+*.pyc
+.venv/
+
+# Jenkins local data (if ever bind-mounted)
+jenkins_home/
+
+# OS junk
+.DS_Store
+Thumbs.db
