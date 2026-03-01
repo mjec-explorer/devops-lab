@@ -2,8 +2,8 @@ pipeline {
   agent any
 
   environment {
-    GHCR_USER = "mjec-explorer"
-    IMAGE     = "ghcr.io/mjec-explorer/devops-lab-app"
+    GHCR_USER  = "mjec-explorer"
+    IMAGE      = "ghcr.io/mjec-explorer/devops-lab-app"
     GHCR_TOKEN = credentials('GHCR_TOKEN')
   }
 
