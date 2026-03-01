@@ -2,24 +2,35 @@ pipeline {
   agent any
 
   environment {
-    GHCR_USER = "mjcastro"
-    IMAGE     = "ghcr.io/mjcastro/devops-lab-app"
+    GHCR_USER = "mjec-explorer"
+    IMAGE     = "ghcr.io/mjec-explorer/devops-lab-app"
     GHCR_TOKEN = credentials('GHCR_TOKEN')
   }
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage('Unit Tests') {
       steps {
         sh '''
           set -eux
-          docker run --rm -v "$PWD/app":/app -w /app python:3.12-slim bash -lc "
-            pip install -r requirements.txt &&
-            pytest -q
-          "
+          echo "WORKSPACE=$WORKSPACE"
+          ls -la
+          ls -la app
+
+          docker run --rm \
+            -v "$WORKSPACE/app":/app \
+            -w /app \
+            python:3.12-slim bash -lc '
+              set -eux
+              ls -la
+              pip install -r requirements.txt
+              pytest -q
+            '
         '''
       }
     }
@@ -47,4 +58,3 @@ pipeline {
       }
     }
   }
-}
