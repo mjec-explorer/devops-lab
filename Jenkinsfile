@@ -48,5 +48,25 @@ pipeline {
         '''
       }
     }
+
+    stage('Deploy') {
+      steps {
+        sh '''
+          set -eux
+          GIT_SHA=$(cat .gitsha)
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker pull "$IMAGE:$GIT_SHA"
+          IMAGE_TAG=$GIT_SHA docker compose up -d --no-deps --force-recreate app
+          
+	  # wait until nginx->app works (avoid flaky 502)
+          for i in {1..15}; do
+            status=$(docker inspect --format='{{.State.Health.Status}}' devops_lab-app-1 2>/dev/null || true)
+            echo "Health=$status"
+            [ "$status" = "healthy" ] && break    
+	    sleep 2
+          done
+        '''
+      }  
+    }
   }
 }

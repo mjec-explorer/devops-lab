@@ -1,8 +1,13 @@
 services: 
   app:
-    image: hashicorp/http-echo
-    command: ["-text=You are doing great, MJ! Keep it up!"]
-
+    image: ghcr.io/mjec-explorer/devops-lab-app:${IMAGE_TAG}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  
   nginx:
     image: nginx:alpine
     ports:
