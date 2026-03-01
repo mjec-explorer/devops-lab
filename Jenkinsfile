@@ -29,7 +29,10 @@ pipeline {
           set -eux
           GIT_SHA=$(git rev-parse --short HEAD)
           echo "$GIT_SHA" > .gitsha
-          docker build --target runtime "$IMAGE:$GIT_SHA" -t "$IMAGE:latest" ./app
+          docker build --target runtime \
+	    -t "$IMAGE:$GIT_SHA" \
+            -t "$IMAGE:latest" \
+            ./app
         '''
       }
     }
