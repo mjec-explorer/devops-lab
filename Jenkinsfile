@@ -56,7 +56,7 @@ pipeline {
           GIT_SHA=$(cat .gitsha)
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker pull "$IMAGE:$GIT_SHA"
-          IMAGE_TAG=$GIT_SHA docker compose -f docker.compose.yml up -d --no-deps --force-recreate app
+          IMAGE_TAG=$GIT_SHA docker compose -f docker-compose.yml up -d --no-deps --force-recreate app
           
 	  # wait until nginx->app works (avoid flaky 502)
           for i in {1..15}; do
