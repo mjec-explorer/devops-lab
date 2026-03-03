@@ -56,15 +56,19 @@ pipeline {
           GIT_SHA=$(cat .gitsha)
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker pull "$IMAGE:$GIT_SHA"
-          IMAGE_TAG=$GIT_SHA docker compose -f docker-compose.yml up -d --no-deps --force-recreate app
-          
+          IMAGE_TAG=$GIT_SHA docker compose -p devops_lab -f docker-compose.yml up -d --no-deps --force-recreate app
+          CID=$(docker compose -p devops_lab -f docker-compose.yml ps -q app)
+
 	  # wait until nginx->app works (avoid flaky 502)
           for i in {1..15}; do
-            status=$(docker inspect --format='{{.State.Health.Status}}' devops_lab-app-1 2>/dev/null || true)
+            status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}nohealth{{end}}' "$CID" || true)
             echo "Health=$status"
-            [ "$status" = "healthy" ] && break    
+            [ "$status" = "healthy" ] || { echo "App never became healthy"; exit 1; } 
 	    sleep 2
           done
+
+          curl -fs http://localhost/health
+          echo "Deployed $GIT_SHA OK"
         '''
       }  
     }

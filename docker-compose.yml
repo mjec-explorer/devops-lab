@@ -47,7 +47,7 @@ services:
       - "9093:9093"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ./sercrets/slack_webhook.txt:/run/secrets/slack_webhook.txt:ro
+      - ./secrets/slack_webhook.txt:/run/secrets/slack_webhook.txt:ro
     secrets:
       - slack_webhook
     command:
