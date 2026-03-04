@@ -24,7 +24,7 @@ This project serves both as a **learning lab and a DevOps portfolio artifact**.
 ---
 
 # Architecture Overview
-
+![DevOps Workflow Diagram](https://github.com/mjec-explorer/devops-lab/blob/main/notes/devops-lab-workflow.png)
 ### Runtime traffic flow
 
 Client request --> Nginx (public entrypoint on port 80) --> FastAPI application container
