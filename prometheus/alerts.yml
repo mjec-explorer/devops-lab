@@ -1,5 +1,5 @@
 groups:
-  - name: alerts
+  - name: devops_lab_alerts
     rules:
       - alert: InstanceDown
         expr: up == 0
@@ -8,3 +8,27 @@ groups:
           severity: critical
         annotations:
           summary: "Target down: {{ $labels.job }} ({{ $labels.instance }}) for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(app_requests_total{status_code=~"5.."}[5m])
+            /
+            rate(app_requests_total[5m])
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage}} over the last 5 minutes"
+
+      - alert: NoTraffic
+        expr: rate(app_requests_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No traffic received for 5 minutes"
+          description: "App has received no requests; Check nginx and upstream routing"
+
