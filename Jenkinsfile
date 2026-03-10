@@ -123,7 +123,7 @@ pipeline {
 
           # Final end-to-end check through nginx
           echo "Running final health check through nginx..."
-          curl -fs http://localhost/health
+          curl -fs http://nginx/health
           echo ""
           echo "Deploy successful: $GIT_SHA"
         '''
