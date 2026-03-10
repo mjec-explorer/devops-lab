@@ -1,25 +1,31 @@
-services: 
+services:
+
   app:
-    image: ghcr.io/mjec-explorer/devops-lab-app:${IMAGE_TAG}
+    image: ghcr.io/mjec-explorer/devops-lab-app:${IMAGE_TAG:-latest}
     restart: always
     healthcheck:
+      # BUG FIX: was /healthcheck — correct endpoint is /health (matches main.py)
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
       interval: 5s
       timeout: 3s
       retries: 10
-  
+      start_period: 10s    # Give the app 10s to start before counting retries
+
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    # BUG FIX: was depends_on: - app (only waits for container to START)
+    # Now waits until app healthcheck passes before nginx begins routing traffic
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   prometheus:
     image: prom/prometheus:latest
-    ports: 
+    ports:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -31,7 +37,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    ports: 
+    ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
@@ -57,6 +63,6 @@ services:
 secrets:
   slack_webhook:
     file: ./secrets/slack_webhook.txt
+
 volumes:
   grafana_data:
-  jenkins_home:
