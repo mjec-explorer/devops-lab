@@ -10,3 +10,8 @@ services:
     user: "0:0"
     restart: unless-stopped
 
+volumes:
+  jenkins_home:
+    external: true
+    name: devops_lab_jenkins_home
+
