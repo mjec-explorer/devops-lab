@@ -7,9 +7,28 @@ route:
   group_wait: 10s
   group_interval: 1m
   repeat_interval: 5m
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: n8n-webhook
+      continue: true
+    - matchers:
+        - severity="critical"
+      receiver: slack-fallback
 
 receivers:
   - name: n8n-webhook
     webhook_configs:
       - url: 'http://n8n:5678/webhook/alertmanager'
 
+  - name: slack-fallback
+    slack_configs:
+      - api_url_file: /run/secrets/slack_webhook
+        channel: '#devops-lab-critical'
+        send_resolved: true
+        title: '[FALLBACK][{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: |-
+          This alert was sent directly by Alertmanager.
+          n8n may be unavailable.
+          Instance: {{ .CommonLabels.instance }}
+          Severity: {{ .CommonLabels.severity }}

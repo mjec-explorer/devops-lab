@@ -32,6 +32,7 @@ services:
       - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-lifecycle"
     depends_on:
       - alertmanager
 
@@ -75,6 +76,26 @@ services:
       - GENERIC_TIMEZONE=Europe/Berlin
     volumes:
       - n8n_data:/home/node/.n8n    
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  blackbox:
+    image: prom/blackbox-exporter:latest
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    command:
+      - "--config.file=/etc/blackbox/blackbox.yml"
+  
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    environment:
+      - CONTAINERS=1
+      - POST=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: always
+
 secrets:
   slack_webhook:
     file: ./secrets/slack_webhook.txt

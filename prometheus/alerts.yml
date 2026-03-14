@@ -1,6 +1,14 @@
 groups:
   - name: devops_lab_alerts
     rules:
+      - alert: InstanceWarning
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Target may be going down: {{ $labels.job }} ({{ $labels.instance }})"
+
       - alert: InstanceDown
         expr: up == 0
         for: 1m
@@ -21,7 +29,7 @@ groups:
           severity: critical
         annotations:
           summary: "High error rate detected"
-          description: "Error rate is {{ $value | humanizePercentage}} over the last 5 minutes"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
 
       - alert: NoTraffic
         expr: rate(app_requests_total[5m]) == 0
@@ -30,5 +38,12 @@ groups:
           severity: warning
         annotations:
           summary: "No traffic received for 5 minutes"
-          description: "App has received no requests; Check nginx and upstream routing"
+          description: "App has received no requests. Check nginx and upstream routing."
 
+      - alert: N8NDown
+        expr: probe_success{instance="http://n8n:5678"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "n8n is down - Alert pipeline broken. Fallback to direct Slack active"
