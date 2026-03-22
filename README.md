@@ -1,6 +1,10 @@
-# DevOps Lab: Production-Grade Infrastructure from Scratch
+# DevOps Lab: Production-Grade Self-Healing Infrastructure with Automated Remediation
 
-This project is not a tutorial follow-along. Every component was designed, configured, broken, debugged, and documented. Every decision has a reason. The goal was to build something that reflects how real engineering teams operate — and to be able to explain every part of it.
+This project demonstrates a production-style system that detects failures, attempts automated remediation, verifies recovery, and falls back to direct alerting when automation fails.
+
+It is designed to reflect how real engineering systems behave under failure, not just how they run when everything works.
+
+Every component was built, broken, debugged, and rebuilt to understand the full lifecycle from deployment to incident response.
 
 ---
 
