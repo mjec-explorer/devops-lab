@@ -1,256 +1,253 @@
-# DevOps Lab: Building a CI/CD + Monitoring Stack 
-## Overview
+DevOps Lab: Production-Grade Self-Healing Infrastructure with Automated Remediation
 
-This repository documents a personal DevOps lab where I built a small production-style infrastructure from the ground up.
-
-Instead of studying the tools individually, the goal of this project is to understand how the pieces of a real deployment workflow connect together from building an application image, running automated tests, publishing it to a registry, deploying it, and monitoring its health.
-
-Everything in this repository is intentionally designed so it can be **rebuilt from scratch**, which is the best way to deeply understand infrastructure.
-
-The stack currently includes:
-
-* FastAPI application
-* Nginx reverse proxy
-* Jenkins CI/CD pipeline
-* Docker multi-stage builds
-* GitHub Container Registry (GHCR)
-* Prometheus monitoring
-* Node Exporter host metrics
-* Grafana dashboards
-* Alertmanager → Slack notifications
-
-This project serves both as a **learning lab and a DevOps portfolio artifact**.
-
+This project demonstrates a production-style system that detects failures, attempts automated remediation, verifies recovery, and falls back to direct alerting when automation fails.
+It is designed to reflect how real engineering systems behave under failure — not just how they run when everything works.
+Every component was built, broken, debugged, and rebuilt to understand the full lifecycle from deployment to incident response.
 ---
-
-# Architecture Overview
-![DevOps Workflow Diagram](https://github.com/mjec-explorer/devops-lab/blob/main/notes/devops-lab-workflow.png)
-### Runtime traffic flow
-
-Client request --> Nginx (public entrypoint on port 80) --> FastAPI application container
-
-Monitoring flow:
-Prometheus scrapes metrics from:
-   * FastAPI `/metrics`
-   * Node Exporter `/metrics`
-
-Alert flow:
-Prometheus --> Alertmanager --> Slack notification
-
-Visualization:
-Grafana dashboards query Prometheus for metrics.
-
----
-
-# CI/CD Pipeline Flow
-
-The CI/CD pipeline is handled by Jenkins and runs the following stages:
-
-1. **Checkout source code** from GitHub
-2. **Run unit tests** using a Docker test stage
-3. **Build the runtime image**
-4. **Tag the image using the Git commit SHA**
-5. **Push the image to GitHub Container Registry**
-6. **Deploy the new version using Docker Compose**
-7. **Validate container health**
-8. **Verify the application endpoint**
-
-The deployment only succeeds if the container passes the health check.
-
----
-
-# Repository Structure
-
+Architecture
+Full Stack Overview
 ```
-mjcastro@MJeC:~/devops_lab$ tree
-.
-├── Jenkinsfile                   # CI/CD Pipeline definition
-├── README.md                     # Project documentation
-├── alertmanager                  # Alert routing & notification logic
-│   └── alertmanager.yml          
-├── app                           # FastAPI Source code & Unit tests
-│   ├── Dockerfile                # Multi-stage build (test -> production)
-│   ├── __init__.py
-│   ├── main.py
-│   ├── requirements.txt
-│   └── tests
-│       └── test_health.py
-├── docker-compose.cicd.yml       # Auxiliary stack (Jenkins)
-├── docker-compose.yml            # Main runtime stack (App, Nginx, Monitoring)
-├── jenkins                       # Custom Jenkins image with Docker-out-of-Docker
-│   └── Dockerfile
-├── nginx                         # Reverse proxy & Load balancing config
-│   └── default.conf
-├── notes                         # Architectural decisions & logs
-│   ├── decisions.md
-│   └── verification.md
-├── prometheus                    # Metrics collection & Alerting rules
-│   ├── alerts.yml
-│   └── prometheus.yml
-└── secrets                       # Local sensitive data (GIT-IGNORED)
-    └── slack_webhook.txt
-
-
-    
+┌─────────────────────────────────────────────────────────────────┐
+│                        CI/CD PIPELINE                           │
+│                                                                 │
+│  Git Push → Jenkins → Unit Tests → Build Image → Tag (SHA)      │
+│                  → Push GHCR → Deploy → Health Check → Live     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      RUNTIME STACK                              │
+│                                                                 │
+│  Browser/Client                                                 │
+│       │                                                         │
+│       ▼                                                         │
+│  Nginx (port 80) ──────────────────► FastAPI (port 8000)        │
+│                                         │                       │
+│                                    /health  /metrics            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                         /metrics
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   OBSERVABILITY STACK                           │
+│                                                                 │
+│  Prometheus (scrapes every 15s)                                 │
+│    ├── FastAPI /metrics          (application metrics)          │
+│    ├── Node Exporter :9100       (host metrics)                 │
+│    └── Blackbox Exporter :9115   (HTTP probe results)           │
+│          └── probes: n8n, grafana, app health                   │
+│                                                                 │
+│  Grafana ◄──── queries ──── Prometheus                          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                         alert rules
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    ALERT & AUTOMATION                           │
+│                                                                 │
+│  Alertmanager                                                   │
+│    ├── WARNING  ──────────────────────────────► Slack           │
+│    └── CRITICAL                                                 │
+│         ├── n8n webhook ──► Parse & Enrich                      │
+│         │                       │                               │
+│         │              Is Critical?                             │
+│         │                  YES                                  │
+│         │                   ├── Notify Slack (enriched)         │
+│         │                   ├── Restart Container               │
+│         │                   │   (via Docker Socket Proxy)       │
+│         │                   ├── Wait 30s                        │
+│         │                   ├── Health Check (Prometheus API)   │
+│         │                   ├── RECOVERED → Slack ✓            │ 
+│         │                   └── FAILED    → Escalate ⚠         │
+│         │                                                       │
+│         └── slack-backup ─────────────────► Slack (fallback)    │
+│              (when n8n is down)                                 │
+│                                                                 │
+│  Blackbox detects n8n down → N8NDown alert → fallback active    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────────┐
+│                  AWS INFRASTRUCTURE (Terraform)                 │
+│                                                                 │
+│  VPC (10.0.0.0/16) — eu-central-1 Frankfurt                     │
+│    └── Public Subnet (10.0.1.0/24) — eu-central-1a              │
+│         ├── Internet Gateway                                    │
+│         ├── Route Table (0.0.0.0/0 → IGW)                       │
+│         ├── Security Group (ports 22, 80, 443)                  │
+│         └── EC2 t3.micro — Ubuntu 22.04                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+Alert Routing Logic
+```
+Alert fires in Prometheus
+        │
+        ▼
+Alertmanager receives alert
+        │
+        ├── severity = warning
+        │       └── default receiver → n8n → Slack (notify only)
+        │
+        └── severity = critical
+                ├── child route 1 → n8n-webhook (continue: true)
+                │       └── n8n handles enrichment + remediation
+                └── child route 2 → slack-backup
+                        └── direct Slack delivery (guaranteed)
+```
+CI/CD Pipeline Stages
+```
+Stage 1: Checkout         — pull source code from GitHub
+Stage 2: Unit Tests       — run pytest inside Docker test container
+Stage 3: Build Image      — multi-stage Docker build (test → production)
+Stage 4: Tag with SHA     — tag image with Git commit SHA
+Stage 5: Push to GHCR     — push to GitHub Container Registry
+Stage 6: Deploy           — docker compose up with new image
+Stage 7: Health Check     — wait for container to report healthy
+Stage 8: Verify Endpoint  — curl /health, confirm {"status":"ok"}
 ```
 ---
-
-# Running the Stack Locally
-
-Start the runtime stack:
-
+Stack
+Component	Role
+FastAPI	Application — exposes /health and /metrics endpoints
+Nginx	Reverse proxy — single entry point, routes to application
+Jenkins	CI/CD — builds, tests, tags, pushes, deploys, validates
+GitHub Container Registry	Image storage — tagged with Git commit SHA
+Prometheus	Metrics collection and alert rule evaluation
+Node Exporter	Host metrics — CPU, memory, disk, network
+Blackbox Exporter	External HTTP probing — monitors services from outside
+Grafana	Metrics visualisation and dashboards
+Alertmanager	Alert routing, deduplication, grouping, fallback delivery
+n8n	Alert enrichment, automated remediation, incident workflow
+Docker Socket Proxy	Controlled Docker API access for safe container operations
+Terraform	AWS infrastructure as code
+AWS EC2	Cloud compute provisioned and managed by Terraform
+---
+CI/CD Pipeline
+The Jenkins pipeline runs on every commit and follows a defined sequence. Each stage must pass before the next begins.
+A deployment that passes unit tests but produces an unhealthy container does not go live. The health check gate enforces this automatically. Tagging with the Git SHA means every running image can be traced back to the exact commit that produced it.
+---
+Monitoring and Observability
+Prometheus scrapes metrics every 15 seconds from three sources.
+Application metrics — request counts, error rates, and latency from the FastAPI application via the /metrics endpoint.
+Host metrics — CPU, memory, disk, and network from Node Exporter running on the host system.
+External probes — Blackbox Exporter checks whether HTTP endpoints are actually reachable from the outside. This catches scenarios where a service is running but not responding — something internal scraping would miss.
+---
+Alert Rules
+Alert	Condition	Severity	Action
+InstanceWarning	Service unreachable for 2 minutes	Warning	Notify only
+InstanceDown	Service unreachable for 5 minutes	Critical	Auto-remediate
+HighErrorRate	Error rate exceeds 5% for 2 minutes	Critical	Notify
+NoTraffic	No requests received for 5 minutes	Warning	Notify
+N8NDown	n8n HTTP endpoint unreachable for 1 minute	Critical	Fallback delivery
+The gap between InstanceWarning and InstanceDown gives time to investigate before automated action is taken.
+---
+Incident Automation Pipeline
+Alerts route through n8n which handles enrichment, decision-making, and action.
 ```
+Alert received from Alertmanager
+    Parse and enrich the payload
+        Add Grafana dashboard URL
+        Add runbook link
+        Map instance to container name
+    Is this alert firing?
+        Yes — Is it critical severity?
+            Yes:
+                Notify Slack with full context
+                Call Docker API to restart the container
+                Wait 30 seconds
+                Query Prometheus API to verify recovery
+                    Recovered → post recovery timeline to Slack
+                    Still down → escalate to critical channel
+            No (warning):
+                Notify Slack
+                No automated action
+        No (resolved):
+            Post resolved notification
+```
+If n8n goes down, Blackbox Exporter detects the failure and Prometheus fires the N8NDown alert. Alertmanager then delivers directly to Slack without passing through n8n.
+---
+Key Design Decisions
+Why separate Alertmanager from n8n?
+Alertmanager handles reliability — deduplication, grouping, silencing, delivery guarantees. n8n handles intelligence — enrichment, logic, remediation. Each component does one thing and does it well. If n8n fails, Alertmanager still delivers through the fallback path.
+Why Docker Socket Proxy?
+Mounting /var/run/docker.sock directly gives a container unrestricted root-level access to the entire Docker daemon. The socket proxy exposes only the specific API endpoints needed — container restart. Principle of least privilege applied to container access.
+Why Blackbox Exporter for n8n monitoring?
+n8n does not expose a Prometheus metrics endpoint. Internal scraping would always show the target as down. Blackbox probes the HTTP port directly, detecting failure the same way an external caller would experience it.
+Why Git SHA tagging?
+Tags like `latest` tell you nothing about what is running. A Git SHA tells you the exact commit. If a deployment causes an incident, you identify the change in seconds and roll back to the previous SHA.
+Why dual delivery for critical alerts?
+n8n delivers enriched contextual notifications. The direct Alertmanager path delivers when n8n is unavailable. Critical alerts should never be silently dropped.
+---
+AWS Infrastructure with Terraform
+Real AWS infrastructure provisioned with Terraform in eu-central-1 Frankfurt.
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+ssh -i ~/.ssh/devopslab ubuntu@$(terraform output -raw ec2_public_ip)
+```
+Always run `terraform plan` before `terraform apply`. The plan shows exactly what will change before anything happens.
+---
+Running the Stack
+```bash
 docker compose up -d
-```
-
-Check running containers:
-
-```
 docker compose ps
-```
-
-Test the application:
-
-```
 curl http://localhost/health
 ```
-
-Expected response:
-
-```
-{"status":"ok"}
-```
-
+Service	URL
+Application	http://localhost
+Prometheus	http://localhost:9090
+Grafana	http://localhost:3000
+Alertmanager	http://localhost:9093
+n8n	http://localhost:5678
+Jenkins	http://localhost:8080
+Blackbox	http://localhost:9115
 ---
-
-# Running Jenkins CI/CD
-
-Start Jenkins:
-
+Testing the Incident Pipeline
+```bash
+docker compose stop node-exporter
 ```
-docker compose -f docker-compose.yml -f docker-compose.cicd.yml up -d --build jenkins
-```
-
-Open Jenkins:
-
-```
-http://localhost:8080
-```
-When Jenkins starts for the first time, it requires the Initial Admin Password.
-
-Retrieve it with:
-```
-docker exec devops_lab-jenkins-1 cat /var/jenkins_home/secrets/initialAdminPassword
-```
-Use the password to unlock Jenkins and complete the setup.
-
-Run the pipeline:
-
-```
-devops-lab-ci
-```
-
-Pipeline stages:
-
-* Checkout
-* Unit Tests
-* Build Image
-* Push Image
-* Deploy
-* Health Validation
-
+Watch Slack without touching anything else. A warning fires within seconds. After the threshold window, a critical alert fires and remediation starts automatically. The container restarts. A health check confirms recovery. A recovery notification posts to Slack with the full incident timeline. No manual intervention.
 ---
-
-# Monitoring and Observability
-
-Prometheus collects metrics from:
-
-* FastAPI application metrics endpoint
-* Node Exporter for host system metrics
-
-Alertmanager routes alerts to Slack when issues occur.
-
-Grafana is used to visualize metrics through dashboards.
-
----
-For this lab environment, Jenkins is allowed to access the Docker daemon directly by mounting the Docker socket:
+Repository Structure
 ```
-/var/run/docker.sock
+devops-lab/
+    app/                    FastAPI application and unit tests
+    alertmanager/           Alert routing and fallback configuration
+    prometheus/             Scrape config, blackbox targets, alert rules
+    blackbox/               HTTP probe module configuration
+    nginx/                  Reverse proxy configuration
+    jenkins/                Jenkins image with Docker socket access
+    terraform/              AWS infrastructure as code
+    notes/                  Architecture decisions and verification guide
+    docker-compose.yml      Full local stack definition
+    docker-compose.cicd.yml Jenkins auxiliary stack
+    Jenkinsfile             CI/CD pipeline stages
 ```
-This allows Jenkins pipelines to build and deploy containers directly on the host to keep the setup simple and reproducible locally.
-
 ---
-# Current Status
-
-So far the following parts are implemented:
-
-* Dockerized application
-* Reverse proxy routing with Nginx
-* Multi-stage Docker builds
-* Jenkins CI pipeline
-* Image publishing to GHCR
-* Automated deployment using Docker Compose
-* Health-checked deployments
-* Monitoring with Prometheus
-* Infrastructure metrics via Node Exporter
-* Slack alert notifications
-
+Known Limitations
+Single Alertmanager instance — no high availability. Production fix is a three-node cluster with gossip protocol for state sharing. Planned for Kubernetes migration.
+n8n as automation layer — lacks guaranteed delivery semantics. Production environments would augment with a managed service like PagerDuty for on-call management.
+Local Terraform state — works for solo development, fails in team environments. Production fix is remote state in S3 with DynamoDB locking. This is the next Terraform milestone.
+SSH open to 0.0.0.0/0 — acceptable for a lab. Production fix is restricting to specific IPs or using AWS Systems Manager Session Manager with no open port 22.
 ---
-
-# Next Improvements
-
-The current setup is intentionally simple so it is easy to understand and reproduce.
-
-Planned improvements include:
-
-Deployment improvements
-
-* Automatic rollback when a deployment fails
-* Blue/Green deployment approach
-* Deployment timeout protection
-
-CI/CD improvements
-
-* GitHub webhook triggers
-* Branch-based deployment rules
-* Build caching improvements
-
-Security improvements
-
-* Run Jenkins with restricted permissions
-* Improve secrets management
-* Remove direct Docker socket access
-
-Observability improvements
-
-* Add application-level metrics
-* Improve alert rules
-* Create additional Grafana dashboards
-
-Testing improvements
-
-* Add load testing stage
-* Simulate real failure scenarios
-
+Roadmap
+Phase 1 — CI/CD and Monitoring ✅ Complete
+Phase 2 — Intelligent Incident Automation - In progress
+Alert enrichment, automated remediation, escalation paths, and meta-monitoring complete. Incident logging, alert deduplication, Jenkins failure handling, and Jira integration coming next.
+Phase 3 — AWS Infrastructure with Terraform - In progress
+Core networking and compute provisioned. Remote state, private subnets, NAT Gateway, ECS deployment, and load balancing coming next.
+Phase 4 — Kubernetes Planned
+Migrate the full stack to Kubernetes on EKS. Alertmanager HA cluster. CKA certification.
+Phase 5 — Security and Compliance Planned
+HashiCorp Vault for secrets management. IAM least privilege hardening. Audit logging.
 ---
-
-# Learning Objective
-
-The main purpose of this lab is not just to make it work once, but to be confident enough to recreate the entire stack again from scratch.
-
-Each phase focuses on understanding:
-
-* how CI/CD pipelines actually deploy code
-* how containers communicate inside networks
-* how monitoring tools collect metrics
-* how alerts are triggered during failures
-* how to troubleshoot infrastructure problems
-
-The goal is not just to make it work once, but to be confident enough to recreate the entire stack again from scratch.
-
-## Documentation & Architecture Decisions
-
-For a deeper dive into how this system was built and how to verify its state, please refer to the following:
-
-* [**Architecture Decisions**](./notes/decisions.md): Why I chose this specific stack, the split Docker Compose strategy, and security trade-offs.
-* [**System Verification**](./notes/verification.md): A step-by-step guide to testing that the monitoring, alerts, and CI/CD pipeline are functioning correctly.
+What Building This Taught
+Every configuration setting is a deliberate trade-off. Scrape intervals, evaluation windows, group waits — each one affects how fast a failure becomes visible before anyone is paged.
+Coming from a background where the response side was the job, building this stack gave visibility into the machine side of MTTD and MTTR. Understanding both sides of that equation changed how I think about observability tools — not just what thresholds to set, but how the full path from failure to awareness to action works, and how to engineer each step deliberately.
+---
+Architecture Decisions · System Verification
+Portfolio: https://mjec-explorer.github.io
+LinkedIn: https://linkedin.com/in/mjcastro-itops
