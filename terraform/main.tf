@@ -1,26 +1,26 @@
 # VPC
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
 
   tags = {
     Name        = "devopslab-vpc"
-    Environment = "lab"
-    Owner       = "mjcastro"
+    Environment = var.environment
+    Owner       = var.owner
   }
 }
 
 # Public Subnet
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "eu-central-1a"
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
 
   tags = {
     Name        = "devopslab-public-subnet"
-    Environment = "lab"
+    Environment = var.environment
   }
 }
 
@@ -30,7 +30,7 @@ resource "aws_internet_gateway" "main" {
 
   tags = {
     Name        = "devopslab-igw"
-    Environment = "lab"
+    Environment = var.environment
   }
 }
 
@@ -45,7 +45,7 @@ resource "aws_route_table" "public" {
 
   tags = {
     Name        = "devopslab-public-rt"
-    Environment = "lab"
+    Environment = var.environment
   }
 }
 
@@ -93,14 +93,14 @@ resource "aws_security_group" "web" {
 
   tags = {
     Name        = "devopslab-web-sg"
-    Environment = "lab"
+    Environment = var.environment
   }
 }
 
 # EC2 Instance
 resource "aws_instance" "web" {
-  ami                         = "ami-0faab6bdbac9486fb"
-  instance_type               = "t3.micro"
+  ami                         = var.ami
+  instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.web.id]
   associate_public_ip_address = true
@@ -108,7 +108,7 @@ resource "aws_instance" "web" {
 
   tags = {
     Name        = "devopslab-web"
-    Environment = "lab"
+    Environment = var.environment
   }
 }
 # Key Pair
