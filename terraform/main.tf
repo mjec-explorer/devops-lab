@@ -116,3 +116,59 @@ resource "aws_key_pair" "devopslab" {
   key_name   = "devopslab-key"
   public_key = file("~/.ssh/devopslab.pub")
 }
+
+# Private Subnet
+resource "aws_subnet" "private" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = "eu-central-1a"
+
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "devopslab-private-subnet"
+  }
+}
+
+/*
+# Elastic IP (for NAT)
+resource "aws_eip" "nat" {
+  domain = "vpc"
+
+  tags = {
+    Name = "devopslab-nat-eip"
+  }
+}
+
+# NAT Gateway
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+
+  tags = {
+    Name = "devopslab-nat"
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+# Private Route table
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+
+  tags = {
+    Name = "devopslab-private-rt"
+  }
+}
+
+# Associate private subnet
+resource "aws_route_table_association" "private" {
+  subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
+}
+*/
