@@ -2,10 +2,12 @@ pipeline {
   agent any
 
   environment {
-    GHCR_USER  = "mjec-explorer"
-    IMAGE      = "ghcr.io/mjec-explorer/devops-lab-app"
-    GHCR_TOKEN = credentials('GHCR_TOKEN')
-  }
+    AWS_REGION            = "eu-central-1"
+    ECR_REGISTRY          = "439475769023.dkr.ecr.eu-central-1.amazonaws.com"
+    IMAGE                 = "439475769023.dkr.ecr.eu-central-1.amazonaws.com/devopslab-app"
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+  } 
 
   stages {
 
@@ -55,6 +57,7 @@ pipeline {
         sh '''
           set -eux
           GIT_SHA=$(cat .gitsha)
+	  export GIT_SHA
           aws ecr get-login-password --region $AWS_REGION | \
             docker login --username AWS --password-stdin $ECR_REGISTRY
 
