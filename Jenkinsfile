@@ -42,10 +42,10 @@ pipeline {
       steps {
         sh '''
           set -eux
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           GIT_SHA=$(cat .gitsha)
+          aws ecr get-login-password --region $AWS_REGION | \
+            docker login --username AWS --password-stdin $ECR_REGISTRY
           docker push "$IMAGE:$GIT_SHA"
-          docker push "$IMAGE:latest"
         '''
       }
     }
@@ -55,7 +55,8 @@ pipeline {
         sh '''
           set -eux
           GIT_SHA=$(cat .gitsha)
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          aws ecr get-login-password --region $AWS_REGION | \
+            docker login --username AWS --password-stdin $ECR_REGISTRY
 
           # Pull the exact SHA-tagged image before deploying
           docker pull "$IMAGE:$GIT_SHA"
@@ -67,7 +68,7 @@ pipeline {
           echo "$PREVIOUS_TAG" > .previous_tag
           echo "Previous image: $PREVIOUS_TAG"
 
-          # Deploy only the app container — leave nginx/prometheus/grafana running
+          # Deploy only the app container 
           IMAGE_TAG=$GIT_SHA docker compose \
             -p devops_lab \
             -f docker-compose.yml \
@@ -104,7 +105,7 @@ pipeline {
             sleep 2
           done
 
-          # If never became healthy — roll back and fail the build
+          # Rollback if unhealthy
           if [ "$HEALTHY" = "0" ]; then
             echo "ERROR: App never became healthy. Rolling back to previous image."
             PREV=$(cat .previous_tag)
@@ -114,15 +115,11 @@ pipeline {
                 -p devops_lab \
                 -f docker-compose.yml \
                 up -d --no-deps --force-recreate app || true
-              echo "Rollback attempted to: $PREV"
-            else
-              echo "No previous image found — rollback not possible."
             fi
             exit 1
           fi
 
           # Final end-to-end check through nginx
-          echo "Running final health check through nginx..."
           curl -fs http://nginx/health
           echo ""
           echo "Deploy successful: $GIT_SHA"

@@ -1,8 +1,10 @@
 services:
 
   app:
-    image: ghcr.io/mjec-explorer/devops-lab-app:${IMAGE_TAG:-latest}
+    image: 439475769023.dkr.ecr.eu-central-1.amazonaws.com/devopslab-app:${IMAGE_TAG:-latest}
     restart: always
+    environment:
+    - GIT_SHA=${GIT_SHA:-unknown}
     healthcheck:
       # BUG FIX: was /healthcheck — correct endpoint is /health (matches main.py)
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]

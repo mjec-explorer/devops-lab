@@ -22,3 +22,8 @@ output "ssh_command" {
   description = "SSH command to connect"
   value       = "ssh -i ~/.ssh/devopslab ubuntu@${aws_instance.web.public_ip}"
 }
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for pushing and pulling images"
+  value       = aws_ecr_repository.app.repository_url
+}

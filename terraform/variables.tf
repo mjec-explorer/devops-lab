@@ -38,3 +38,9 @@ variable "owner" {
   type        = string
   default     = "mjcastro"
 }
+
+variable "private_subnet_cidr" {
+  description = "Private subnet CIDR block"
+  type = string
+  default = "10.0.2.0/24"
+}

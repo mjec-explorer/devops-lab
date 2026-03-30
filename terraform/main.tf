@@ -134,6 +134,7 @@ resource "aws_instance" "web" {
     NGINX
     docker run -d \
       --name fastapi-app \
+      -e GIT_SHA=6225f51
       --network devops-net \
       --restart always \
       439475769023.dkr.ecr.eu-central-1.amazonaws.com/devopslab-app:6225f51

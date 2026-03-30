@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
-import time
+import time, os
 
 app = FastAPI(title="devops_lab_app")
 
@@ -17,6 +17,10 @@ REQUEST_DURATION = Histogram(
          ["path"],
          buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
 )
+
+@app.get("/version")
+def version():
+    return {"version": os.getenv("GIT_SHA", "unknown")}
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
