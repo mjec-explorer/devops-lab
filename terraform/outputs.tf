@@ -27,3 +27,8 @@ output "ecr_repository_url" {
   description = "ECR repository URL for pushing and pulling images"
   value       = aws_ecr_repository.app.repository_url
 }
+
+output "alb_dns_name" {
+  description = "Application Load Balancer DNS name"
+  value       = aws_lb.main.dns_name
+}

@@ -41,6 +41,11 @@ variable "owner" {
 
 variable "private_subnet_cidr" {
   description = "Private subnet CIDR block"
-  type = string
-  default = "10.0.2.0/24"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+variable "public_subnet_cidr_2" {
+  description = "Second public subnet CIDR block"
+  type        = string
+  default     = "10.0.3.0/24"
 }
