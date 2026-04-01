@@ -46,7 +46,7 @@ def health():
 
 @app.get("/")
 def root():
-    return {"message": "Hello from devops_lab_app!"}
+    return {"message": "Hello from Devops Lab APP!!"}
 
 @app.get("/metrics")
 def metrics():
