@@ -1,18 +1,26 @@
 pipeline {
   agent any
+
   environment {
     AWS_REGION            = "eu-central-1"
     ECR_REGISTRY          = "439475769023.dkr.ecr.eu-central-1.amazonaws.com"
     IMAGE                 = "439475769023.dkr.ecr.eu-central-1.amazonaws.com/devopslab-app"
+    ECS_CLUSTER           = "devopslab-cluster"
+    ECS_SERVICE           = "devopslab-app"
+    ECS_EXECUTION_ROLE    = "arn:aws:iam::439475769023:role/devopslab-ecs-execution"
+    ALB_DNS               = "devopslab-alb-847836574.eu-central-1.elb.amazonaws.com"
     AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
     AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
   }
+
   stages {
+
     stage('Checkout') {
       steps {
         checkout scm
       }
     }
+
     stage('Unit Tests') {
       steps {
         sh '''
@@ -21,6 +29,7 @@ pipeline {
         '''
       }
     }
+
     stage('Build Image') {
       steps {
         sh '''
@@ -33,6 +42,7 @@ pipeline {
         '''
       }
     }
+
     stage('Push Image') {
       steps {
         sh '''
@@ -44,31 +54,77 @@ pipeline {
         '''
       }
     }
+
     stage('Deploy to ECS') {
       steps {
         sh '''
           set -eux
           GIT_SHA=$(cat .gitsha)
 
+          # Register new task definition with updated image SHA
+          aws ecs register-task-definition \
+            --family devopslab-app \
+            --network-mode awsvpc \
+            --requires-compatibilities FARGATE \
+            --cpu 256 \
+            --memory 512 \
+            --execution-role-arn $ECS_EXECUTION_ROLE \
+            --container-definitions "[{
+              \\"name\\": \\"app\\",
+              \\"image\\": \\"$IMAGE:$GIT_SHA\\",
+              \\"essential\\": true,
+              \\"portMappings\\": [{
+                \\"containerPort\\": 8000,
+                \\"protocol\\": \\"tcp\\"
+              }],
+              \\"environment\\": [{
+                \\"name\\": \\"GIT_SHA\\",
+                \\"value\\": \\"$GIT_SHA\\"
+              }],
+              \\"logConfiguration\\": {
+                \\"logDriver\\": \\"awslogs\\",
+                \\"options\\": {
+                  \\"awslogs-group\\": \\"/ecs/devopslab-app\\",
+                  \\"awslogs-region\\": \\"$AWS_REGION\\",
+                  \\"awslogs-stream-prefix\\": \\"ecs\\"
+                }
+              }
+            }]" \
+            --region $AWS_REGION
+
+          # Get latest task definition ARN
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition devopslab-app \
+            --region $AWS_REGION \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "New task definition: $TASK_DEF"
+
+          # Update ECS service with new task definition
           aws ecs update-service \
-            --cluster devopslab-cluster \
-            --service devopslab-app \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --task-definition $TASK_DEF \
             --force-new-deployment \
             --region $AWS_REGION
 
+          # Wait for service to stabilize
           echo "Waiting for ECS service to stabilize..."
           aws ecs wait services-stable \
-            --cluster devopslab-cluster \
-            --services devopslab-app \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE \
             --region $AWS_REGION
 
-          curl -fs http://devopslab-alb-847836574.eu-central-1.elb.amazonaws.com/health
+          # Final health check via ALB
+          curl -fs http://$ALB_DNS/health
           echo ""
           echo "Deploy successful: $GIT_SHA"
         '''
       }
     }
   }
+
   post {
     failure {
       echo 'Pipeline failed. Check deploy logs above.'
