@@ -79,27 +79,27 @@ pipeline {
             --cpu 256 \
             --memory 512 \
             --execution-role-arn $ECS_EXECUTION_ROLE \
-            --container-definitions "[{
-              \"name\": \"app\",
-              \"image\": \"$IMAGE:$GIT_SHA\",
-              \"essential\": true,
-              \"portMappings\": [{
-                \"containerPort\": 8000,
-                \"protocol\": \"tcp\"
+            --container-definitions '[{
+              "name": "app",
+              "image": "'"$IMAGE:$GIT_SHA"'",
+              "essential": true,
+              "portMappings": [{
+                "containerPort": 8000,
+                "protocol": "tcp"
               }],
-              \"environment\": [{
-                \"name\": \"GIT_SHA\",
-                \"value\": \"$GIT_SHA\"
+              "environment": [{
+                "name": "GIT_SHA",
+                "value": "'"$GIT_SHA"'"
               }],
-              \"logConfiguration\": {
-                \"logDriver\": \"awslogs\",
-                \"options\": {
-                  \"awslogs-group\": \"/ecs/devopslab-app\",
-                  \"awslogs-region\": \"$AWS_REGION\",
-                  \"awslogs-stream-prefix\": \"ecs\"
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "/ecs/devopslab-app",
+                  "awslogs-region": "'"$AWS_REGION"'",
+                  "awslogs-stream-prefix": "ecs"
                 }
               }
-            }]" \
+            }]' \
             --region $AWS_REGION
 
           TASK_DEF=$(aws ecs describe-task-definition \

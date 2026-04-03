@@ -1,16 +1,15 @@
 from fastapi import FastAPI, Request
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
-import time, os
+import time, os, socket
 
 app = FastAPI(title="devops_lab_app")
 
 REQUESTS = Counter(
-         "app_requests_total", 
-         "Total HTTP requests", 
+         "app_requests_total",
+         "Total HTTP requests",
          ["path", "status_code"]
 )
-
 REQUEST_DURATION = Histogram(
          "app_request_duration_seconds",
          "HTTP request duration in seconds",
@@ -20,24 +19,21 @@ REQUEST_DURATION = Histogram(
 
 @app.get("/version")
 def version():
-    return {"version": os.getenv("GIT_SHA", "unknown")}
+    return {
+        "version": os.getenv("GIT_SHA", "unknown"),
+        "host": socket.gethostname()
+    }
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
     start = time.time()
-
     response = await call_next(request)
-
     duration = time.time() - start
     path = request.url.path
     status = str(response.status_code)
-
-    # Skip recording metrics for the /metrics endpoint itself
-    # (otherwise you get noise from Prometheus scraping)
     if path != "/metrics":
         REQUESTS.labels(path=path, status_code=status).inc()
         REQUEST_DURATION.labels(path=path).observe(duration)
-
     return response
 
 @app.get("/health")
@@ -46,7 +42,7 @@ def health():
 
 @app.get("/")
 def root():
-    return {"message": "Hello from Devops Lab APP!!"}
+    return {"message": "Hello from my DevOps Lab!"}
 
 @app.get("/metrics")
 def metrics():
