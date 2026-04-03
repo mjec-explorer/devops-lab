@@ -106,6 +106,11 @@ resource "aws_instance" "web" {
   associate_public_ip_address = true
   key_name                    = aws_key_pair.devopslab.key_name
   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
+
   user_data_replace_on_change = true
 
   user_data = <<-EOF
