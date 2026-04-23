@@ -3,49 +3,63 @@ variable "region" {
   type        = string
   default     = "eu-central-1"
 }
-variable "vpc_cidr" {
-  description = "VPC CIDR block"
+
+variable "project_name" {
+  description = "Project name used as prefix for all resources"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "devopslab"
 }
-variable "public_subnet_cidr" {
-  description = "public subnet cidr"
-  type        = string
-  default     = "10.0.1.0/24"
-}
-variable "availability_zone" {
-  description = "availability zone"
-  type        = string
-  default     = "eu-central-1a"
-}
-variable "ami" {
-  description = "AMI ID for EC2 instance"
-  type        = string
-  default     = "ami-0faab6bdbac9486fb"
-}
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
-  default     = "t3.micro"
-}
+
 variable "environment" {
-  description = "environment"
+  description = "Environment name"
   type        = string
   default     = "lab"
 }
-variable "owner" {
-  description = "owner"
+
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
   type        = string
-  default     = "mjcastro"
+  default     = "10.0.0.0/16"
 }
 
-variable "private_subnet_cidr" {
-  description = "Private subnet CIDR block"
+variable "my_ip" {
+  description = "Your home IP for admin access"
+  type        = string
+  default     = "104.151.92.154/32"
+}
+
+variable "private_subnet_1_cidr" {
+  description = "Private subnet 1 CIDR block"
+  type        = string
+  default     = "10.0.10.0/24"
+}
+
+variable "private_subnet_2_cidr" {
+  description = "Private subnet 2 CIDR block"
+  type        = string
+  default     = "10.0.20.0/24"
+}
+
+variable "public_subnet_1_cidr" {
+  description = "Public subnet 1 CIDR block"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "public_subnet_2_cidr" {
+  description = "Public subnet 2 CIDR block"
   type        = string
   default     = "10.0.2.0/24"
 }
-variable "public_subnet_cidr_2" {
-  description = "Second public subnet CIDR block"
+
+variable "az_1" {
+  description = "Primary availability zone"
   type        = string
-  default     = "10.0.3.0/24"
+  default     = "eu-central-1a"
+}
+
+variable "az_2" {
+  description = "Secondary availability zone"
+  type        = string
+  default     = "eu-central-1b"
 }
