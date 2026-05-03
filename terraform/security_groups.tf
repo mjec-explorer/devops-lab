@@ -121,27 +121,27 @@ resource "aws_security_group" "monitoring" {
 
 
   ingress {
-    description = "Grafana"
+    description = "Grafana via Jenkins tunnel"
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [aws_security_group.jenkins.id]
   }
 
   ingress {
-    description = "Prometheus"
+    description = "Prometheus via Jenkins tunnel"
     from_port   = 9090
     to_port     = 9090
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [aws_security_group.jenkins.id]
   }
 
   ingress {
-    description = "n8n"
+    description = "n8n via Jenkins tunnel"
     from_port   = 5678
     to_port     = 5678
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [aws_security_group.jenkins.id]
   }
 
   egress {
