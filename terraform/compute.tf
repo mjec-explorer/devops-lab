@@ -1,10 +1,10 @@
 resource "aws_instance" "jenkins" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
-  subnet_id              = aws_subnet.public_1.id
+  subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.jenkins.id]
   iam_instance_profile   = aws_iam_instance_profile.jenkins.name
-  key_name               = var.key_pair_name
+
 
   user_data = <<-EOF
     #!/bin/bash
@@ -49,7 +49,7 @@ resource "aws_instance" "monitoring" {
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.monitoring.id]
   iam_instance_profile   = aws_iam_instance_profile.monitoring.name
-  key_name               = var.key_pair_name
+
 
   user_data = <<-EOF
     #!/bin/bash

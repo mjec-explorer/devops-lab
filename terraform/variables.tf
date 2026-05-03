@@ -75,9 +75,3 @@ variable "ami_id" {
   type        = string
   default     = "ami-0faab6bdbac9486fb"
 }
-
-variable "key_pair_name" {
-  description = "Name of the SSH key pair for EC2 access"
-  type        = string
-  default     = "devopslab-key"
-}

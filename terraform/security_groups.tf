@@ -83,22 +83,6 @@ resource "aws_security_group" "jenkins" {
   description = "Security group for Jenkins EC2"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description = "Jenkins UI"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
-  }
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
-  }
-
   egress {
     description = "ECR push + ECS API calls"
     from_port   = 443
