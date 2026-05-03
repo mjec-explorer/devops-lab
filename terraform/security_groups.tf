@@ -83,22 +83,6 @@ resource "aws_security_group" "jenkins" {
   description = "Security group for Jenkins EC2"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description = "Jenkins UI"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
-  }
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
-  }
-
   egress {
     description = "ECR push + ECS API calls"
     from_port   = 443
@@ -121,27 +105,27 @@ resource "aws_security_group" "monitoring" {
 
 
   ingress {
-    description = "Grafana"
+    description = "Grafana via Jenkins tunnel"
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [aws_security_group.jenkins.id]
   }
 
   ingress {
-    description = "Prometheus"
+    description = "Prometheus via Jenkins tunnel"
     from_port   = 9090
     to_port     = 9090
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [aws_security_group.jenkins.id]
   }
 
   ingress {
-    description = "n8n"
+    description = "n8n via Jenkins tunnel"
     from_port   = 5678
     to_port     = 5678
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [aws_security_group.jenkins.id]
   }
 
   egress {

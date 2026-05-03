@@ -63,3 +63,15 @@ variable "az_2" {
   type        = string
   default     = "eu-central-1b"
 }
+
+variable "instance_type" {
+  description = "EC2 instance type for Jenkins and Monitoring"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "ami_id" {
+  description = "Ubuntu 22.04 LTS AMI for eu-central-1"
+  type        = string
+  default     = "ami-0faab6bdbac9486fb"
+}
