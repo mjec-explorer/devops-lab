@@ -28,3 +28,4 @@ terraform/*.tfvars
 terraform/override.tf
 terraform/override.tf.json
 *.swp
+monitoring/secrets/slack_webhook.txt

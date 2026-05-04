@@ -54,12 +54,31 @@ resource "aws_instance" "monitoring" {
   user_data = <<-EOF
     #!/bin/bash
     apt-get update -y
-    apt-get install -y docker.io docker-compose-plugin
+    apt-get install -y docker.io docker-compose-plugin curl unzip
 
-    # Start and enable Docker
+    # Start Docker
     systemctl start docker
     systemctl enable docker
     usermod -aG docker ubuntu
+
+    # Install AWS CLI v2
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    ./aws/install
+
+    # Wait for instance profile to be available
+    sleep 10
+
+    # Pull configs from S3
+    mkdir -p /home/ubuntu/monitoring
+    aws s3 cp s3://${aws_s3_bucket.configs.id}/monitoring/ /home/ubuntu/monitoring/ --recursive --region ${var.region}
+
+    # Start monitoring stack
+    cd /home/ubuntu/monitoring
+    docker compose -f docker-compose.monitoring.yml up -d
+
+    # Set ownership
+    chown -R ubuntu:ubuntu /home/ubuntu/monitoring
   EOF
 
   tags = {

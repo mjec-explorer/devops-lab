@@ -159,7 +159,7 @@ resource "aws_iam_role_policy_attachment" "jenkins_ssm" {
 }
 
 resource "aws_iam_role_policy_attachment" "monitoring_ssm" {
-  role       = aws_iam_role.jenkins.name
+  role       = aws_iam_role.monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
@@ -188,7 +188,7 @@ resource "aws_iam_role" "monitoring" {
 
 resource "aws_iam_policy" "monitoring" {
   name        = "${var.project_name}-monitoring-policy"
-  description = "Allows monitoring EC2 to read CloudWatch and ECS metrics"
+  description = "Allows monitoring EC2 to read CloudWatch, ECS metrics and S3 configs"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -207,6 +207,17 @@ resource "aws_iam_policy" "monitoring" {
           "ec2:DescribeInstances"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.project_name}-configs-*",
+          "arn:aws:s3:::${var.project_name}-configs-*/*"
+        ]
       }
     ]
   })

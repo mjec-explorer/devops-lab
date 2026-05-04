@@ -1,0 +1,76 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    network_mode: host
+    volumes:
+      - ./prometheus-aws.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-lifecycle"
+      - "--storage.tsdb.path=/prometheus"
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    network_mode: host
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    network_mode: host
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets/slack_webhook.txt:/run/secrets/slack_webhook:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    restart: always
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    network_mode: host
+    restart: always
+
+  blackbox:
+    image: prom/blackbox-exporter:latest
+    network_mode: host
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    command:
+      - "--config.file=/etc/blackbox/blackbox.yml"
+    restart: always
+
+  n8n:
+    image: n8nio/n8n:latest
+    network_mode: host
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=changeme
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Europe/Berlin
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: always
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    network_mode: host
+    environment:
+      - CONTAINERS=1
+      - POST=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: always
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  n8n_data:

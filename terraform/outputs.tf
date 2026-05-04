@@ -27,3 +27,8 @@ output "vpc_id" {
   description = "VPC ID"
   value       = aws_vpc.main.id
 }
+
+output "configs_bucket_name" {
+  description = "S3 bucket name for monitoring configs"
+  value       = aws_s3_bucket.configs.id
+}
