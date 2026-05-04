@@ -43,3 +43,14 @@ resource "aws_ecs_task_definition" "app" {
     ManagedBy   = "terraform"
   }
 }
+
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/ecs/${var.project_name}"
+  retention_in_days = 7
+
+  tags = {
+    Name        = "/ecs/${var.project_name}"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
