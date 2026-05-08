@@ -90,7 +90,13 @@ resource "aws_security_group" "jenkins" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
+  egress {
+    description = "apt-get package downloads"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   tags = {
     Name        = "${var.project_name}-jenkins-sg"
     Environment = var.environment
@@ -103,6 +109,13 @@ resource "aws_security_group" "monitoring" {
   description = "Security group for Monitoring"
   vpc_id      = aws_vpc.main.id
 
+  egress {
+    description = "apt-get package downloads"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   egress {
     description     = "scrape node_exporter"
     from_port       = 9100
