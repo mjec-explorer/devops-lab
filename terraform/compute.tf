@@ -5,11 +5,22 @@ resource "aws_instance" "jenkins" {
   vpc_security_group_ids = [aws_security_group.jenkins.id]
   iam_instance_profile   = aws_iam_instance_profile.jenkins.name
 
-
   user_data = <<-EOF
     #!/bin/bash
     apt-get update -y
-    apt-get install -y docker.io openjdk-17-jdk curl
+    apt-get install -y ca-certificates curl gnupg unzip wget openjdk-17-jdk
+
+    # Install Docker official way
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt-get update -y
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
     # Start and enable Docker
     systemctl start docker
@@ -17,11 +28,11 @@ resource "aws_instance" "jenkins" {
     usermod -aG docker ubuntu
 
     # Install Jenkins
-    curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | tee \
-      /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-    echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-      https://pkg.jenkins.io/debian-stable binary/ | tee \
-      /etc/apt/sources.list.d/jenkins.list > /dev/null
+    wget -O /usr/share/keyrings/jenkins-keyring.asc \
+      https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+      https://pkg.jenkins.io/debian-stable binary/" | \
+      tee /etc/apt/sources.list.d/jenkins.list > /dev/null
     apt-get update -y
     apt-get install -y jenkins
 
@@ -29,9 +40,8 @@ resource "aws_instance" "jenkins" {
     systemctl start jenkins
     systemctl enable jenkins
 
-    # Install AWS CLI
+    # Install AWS CLI v2
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    apt-get install -y unzip
     unzip awscliv2.zip
     ./aws/install
   EOF
@@ -50,11 +60,22 @@ resource "aws_instance" "monitoring" {
   vpc_security_group_ids = [aws_security_group.monitoring.id]
   iam_instance_profile   = aws_iam_instance_profile.monitoring.name
 
-
   user_data = <<-EOF
     #!/bin/bash
     apt-get update -y
-    apt-get install -y docker.io docker-compose-plugin curl unzip
+    apt-get install -y ca-certificates curl gnupg unzip wget
+
+    # Install Docker official way
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt-get update -y
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
     # Start Docker
     systemctl start docker
@@ -71,7 +92,8 @@ resource "aws_instance" "monitoring" {
 
     # Pull configs from S3
     mkdir -p /home/ubuntu/monitoring
-    aws s3 cp s3://${aws_s3_bucket.configs.id}/monitoring/ /home/ubuntu/monitoring/ --recursive --region ${var.region}
+    aws s3 cp s3://${aws_s3_bucket.configs.id}/monitoring/ \
+      /home/ubuntu/monitoring/ --recursive --region ${var.region}
 
     # Start monitoring stack
     cd /home/ubuntu/monitoring
