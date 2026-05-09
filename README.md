@@ -1,270 +1,259 @@
-# DevOps Lab: Production-Grade Self-Healing Infrastructure with Automated Remediation
+# DevOps Lab — Production-Grade AWS Infrastructure with Automated Remediation
 
-This project demonstrates a production-style system that detects failures, attempts automated remediation, verifies recovery, and falls back to direct alerting when automation fails.
+An end-to-end DevOps platform built on AWS, provisioned entirely with Terraform, with a full CI/CD pipeline, observability stack, and intelligent alert automation.
 
-It is designed to reflect how real engineering systems behave under failure, not just how they run when everything works.
-
-Every component was built, broken, debugged, and rebuilt to understand the full lifecycle from deployment to incident response.
+Built from scratch — not from a tutorial. Every resource was written, reviewed, broken, debugged, and rebuilt to understand the full lifecycle from infrastructure to incident response.
 
 ---
 
 ## Architecture
 
-### Full Stack Overview
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CI/CD PIPELINE                           │
-│                                                                 │
-│  Git Push → Jenkins → Unit Tests → Build Image → Tag (SHA)      │
-│                  → Push GHCR → Deploy → Health Check → Live     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      RUNTIME STACK                              │
-│                                                                 │
-│  Browser/Client                                                 │
-│       │                                                         │
-│       ▼                                                         │
-│  Nginx (port 80) ──────────────────► FastAPI (port 8000)        │
-│                                         │                       │
-│                                    /health  /metrics            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                         /metrics
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   OBSERVABILITY STACK                           │
-│                                                                 │
-│  Prometheus (scrapes every 15s)                                 │
-│    ├── FastAPI /metrics          (application metrics)          │
-│    ├── Node Exporter :9100       (host metrics)                 │
-│    └── Blackbox Exporter :9115   (HTTP probe results)           │
-│          └── probes: n8n, grafana, app health                   │
-│                                                                 │
-│  Grafana ◄──── queries ──── Prometheus                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                         alert rules
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    ALERT & AUTOMATION                           │
-│                                                                 │
-│  Alertmanager                                                   │
-│    ├── WARNING  ──────────────────────────────► Slack           │
-│    └── CRITICAL                                                 │
-│         ├── n8n webhook ──► Parse & Enrich                      │
-│         │                       │                               │
-│         │              Is Critical?                             │
-│         │                  YES                                  │
-│         │                   ├── Notify Slack (enriched)         │
-│         │                   ├── Restart Container               │
-│         │                   │   (via Docker Socket Proxy)       │
-│         │                   ├── Wait 30s                        │
-│         │                   ├── Health Check (Prometheus API)   │
-│         │                   ├── RECOVERED → Slack ✓            │
-│         │                   └── FAILED    → Escalate ⚠         │
-│         │                                                       │
-│         └── slack-backup ─────────────────► Slack (fallback)    │
-│              (when n8n is down)                                 │
-│                                                                 │
-│  Blackbox detects n8n down → N8NDown alert → fallback active    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                  AWS INFRASTRUCTURE (Terraform)                 │
-│                                                                 │
-│  VPC (10.0.0.0/16) — eu-central-1 Frankfurt                     │
-│    └── Public Subnet (10.0.1.0/24) — eu-central-1a              │
-│         ├── Internet Gateway                                    │
-│         ├── Route Table (0.0.0.0/0 → IGW)                       │
-│         ├── Security Group (ports 22, 80, 443)                  │
-│         └── EC2 t3.micro — Ubuntu 22.04                         │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Alert Routing Logic
-
-```
-Alert fires in Prometheus
-        │
-        ▼
-Alertmanager receives alert
-        │
-        ├── severity = warning
-        │       └── default receiver → n8n → Slack (notify only)
-        │
-        └── severity = critical
-                ├── child route 1 → n8n-webhook (continue: true)
-                │       └── n8n handles enrichment + remediation
-                └── child route 2 → slack-backup
-                        └── direct Slack delivery (guaranteed)
-```
-
-### CI/CD Pipeline Stages
-
-```
-Stage 1: Checkout         — pull source code from GitHub
-Stage 2: Unit Tests       — run pytest inside Docker test container
-Stage 3: Build Image      — multi-stage Docker build (test → production)
-Stage 4: Tag with SHA     — tag image with Git commit SHA
-Stage 5: Push to GHCR     — push to GitHub Container Registry
-Stage 6: Deploy           — docker compose up with new image
-Stage 7: Health Check     — wait for container to report healthy
-Stage 8: Verify Endpoint  — curl /health, confirm {"status":"ok"}
+                        Internet
+                            │
+                    Internet Gateway
+                            │
+              ┌─────────────────────────────┐
+              │         VPC 10.0.0.0/16      │
+              │      eu-central-1 Frankfurt  │
+              │                             │
+              │  ┌──── Public Subnets ────┐  │
+              │  │  ALB    NAT Gateway    │  │
+              │  └────────────────────────┘  │
+              │             │               │
+              │  ┌──── Private Subnets ───┐  │
+              │  │                        │  │
+              │  │  ECS Fargate (FastAPI) │  │
+              │  │  Jenkins EC2           │  │
+              │  │  Monitoring EC2        │  │
+              │  │                        │  │
+              │  └────────────────────────┘  │
+              └─────────────────────────────┘
+                            │
+              ┌─────────────────────────────┐
+              │   AWS Managed Services      │
+              │   ECR  S3  SSM  CloudWatch  │
+              └─────────────────────────────┘
 ```
 
 ---
 
 ## Stack
 
-| Component | Role |
-|---|---|
-| FastAPI | Application — exposes /health and /metrics endpoints |
-| Nginx | Reverse proxy — single entry point, routes to application |
-| Jenkins | CI/CD — builds, tests, tags, pushes, deploys, validates |
-| GitHub Container Registry | Image storage — tagged with Git commit SHA |
-| Prometheus | Metrics collection and alert rule evaluation |
-| Node Exporter | Host metrics — CPU, memory, disk, network |
-| Blackbox Exporter | External HTTP probing — monitors services from outside |
-| Grafana | Metrics visualisation and dashboards |
-| Alertmanager | Alert routing, deduplication, grouping, fallback delivery |
-| n8n | Alert enrichment, automated remediation, incident workflow |
-| Docker Socket Proxy | Controlled Docker API access for safe container operations |
-| Terraform | AWS infrastructure as code |
-| AWS EC2 | Cloud compute provisioned and managed by Terraform |
+| Layer | Component | Purpose |
+|---|---|---|
+| Infrastructure | Terraform | Provisions all AWS resources |
+| Network | VPC, ALB, NAT Gateway | Isolation, routing, load balancing |
+| Compute | ECS Fargate, EC2 | Application and tooling |
+| Registry | Amazon ECR | Container image storage |
+| CI/CD | Jenkins | Build, test, push, deploy |
+| Application | FastAPI | Exposes /health and /metrics |
+| Monitoring | Prometheus + Grafana | Metrics collection and dashboards |
+| Alerting | Alertmanager | Alert routing and deduplication |
+| Automation | n8n | Alert enrichment and auto-remediation |
+| Probing | Blackbox Exporter | External HTTP endpoint checks |
+| Access | AWS SSM Session Manager | Zero-inbound-port EC2 access |
+| State | S3 + DynamoDB | Remote Terraform state and locking |
+
+---
+
+## Key Architectural Decisions
+
+**Private subnets for all workloads**
+ECS tasks, Jenkins, and Monitoring EC2 all run in private subnets with no public IPs. The only way into the application is through the ALB. Attack surface is minimal — even if a private IP is discovered, there is no route in from the internet.
+
+**SSM Session Manager replaces SSH**
+Jenkins and Monitoring EC2 have zero inbound security group rules. Access is through AWS Systems Manager Session Manager — IAM-controlled, no open ports, every session logged to CloudWatch. Static SSH keys are eliminated entirely.
+
+**Immutable ECR image tags**
+Every image is tagged with the Git commit SHA. Tags cannot be overwritten. If a deployment causes an incident, the exact commit is traceable in seconds. Rolling back means deploying the previous SHA.
+
+**Separate IAM roles per service**
+Four distinct IAM roles: ECS execution (AWS sets up containers), ECS task (application runtime calls), Jenkins (CI/CD operations), Monitoring (read-only metrics access). Each scoped to specific resource ARNs. Blast radius is contained if any role is compromised.
+
+**Remote Terraform state**
+State stored in S3 with versioning and AES-256 encryption. DynamoDB prevents concurrent applies. State is recoverable from previous versions if corrupted. Never stored locally or committed to git.
+
+**Configs delivered via S3**
+Monitoring configs (Prometheus, Grafana, Alertmanager, n8n) are versioned in git, uploaded to a dedicated S3 bucket, and pulled by the monitoring EC2 on first boot. Infrastructure is fully reproducible from a single `terraform apply`.
+
+**Multi-AZ deployment**
+Public and private subnets span two Availability Zones. If one AZ fails, the ALB routes to the remaining healthy AZ. ECS tasks can be distributed across both AZs for full redundancy.
+
+---
+
+## Infrastructure as Code
+
+Built with Terraform, split into 11 files by responsibility:
+
+```
+terraform/
+├── provider.tf          AWS provider and version constraints
+├── backend.tf           S3 remote state + DynamoDB locking
+├── variables.tf         All input variables with descriptions
+├── networking.tf        VPC, subnets, IGW, NAT Gateway, route tables
+├── security_groups.tf   ALB, ECS, Jenkins, Monitoring SGs
+├── iam.tf               IAM roles, policies, instance profiles
+├── ecr.tf               Container registry with lifecycle policy
+├── compute.tf           Jenkins and Monitoring EC2 instances
+├── alb.tf               Load balancer, target group, listener
+├── ecs.tf               Cluster, task definition, service
+├── s3.tf                Configs bucket
+└── outputs.tf           ALB DNS, ECR URL, instance IDs
+```
 
 ---
 
 ## CI/CD Pipeline
 
-The Jenkins pipeline runs on every commit and follows a defined sequence. Each stage must pass before the next begins.
+Jenkins runs on EC2 in a private subnet. Accessed via SSM port forwarding — no open ports, no public IP.
 
-A deployment that passes unit tests but produces an unhealthy container does not go live. The health check gate enforces this automatically. Tagging with the Git SHA means every running image can be traced back to the exact commit that produced it.
+Pipeline stages:
+
+```
+1. Checkout         Pull source code from GitHub
+2. Unit Tests       Build test image, run pytest (optional)
+3. Build Image      Multi-stage Docker build
+4. Push to ECR      Tag with Git SHA, push to ECR
+5. Deploy to ECS    Register new task definition, update service
+6. Wait for stable  Poll ECS until deployment completes
+7. Health check     Verify /health endpoint via ALB
+```
+
+Jenkins uses the EC2 IAM instance profile — no static AWS credentials stored anywhere.
 
 ---
 
-## Monitoring and Observability
+## Observability Stack
 
-Prometheus scrapes metrics every 15 seconds from three sources.
+Runs on a dedicated EC2 in a private subnet. Accessed via SSM port forwarding.
 
-**Application metrics** — request counts, error rates, and latency from the FastAPI application via the /metrics endpoint.
+**Prometheus** scrapes ECS tasks via AWS service discovery — automatically finds new tasks when they start or are replaced. No manual target configuration needed.
 
-**Host metrics** — CPU, memory, disk, and network from Node Exporter running on the host system.
+**Grafana** visualises request rate, error rate, P95 latency, and infrastructure metrics.
 
-**External probes** — Blackbox Exporter checks whether HTTP endpoints are actually reachable from the outside. This catches scenarios where a service is running but not responding — something internal scraping would miss.
+**Alertmanager** routes alerts through n8n for auto-remediation before escalating to Slack directly.
+
+**n8n** enriches alerts, attempts container restart via Docker API, verifies recovery, and escalates if recovery fails.
+
+**Blackbox Exporter** probes HTTP endpoints externally — catches scenarios where a service is running but not responding.
 
 ---
 
 ## Alert Rules
 
-| Alert | Condition | Severity | Action |
-|---|---|---|---|
-| InstanceWarning | Service unreachable for 2 minutes | Warning | Notify only |
-| InstanceDown | Service unreachable for 5 minutes | Critical | Auto-remediate |
-| HighErrorRate | Error rate exceeds 5% for 2 minutes | Critical | Notify |
-| NoTraffic | No requests received for 5 minutes | Warning | Notify |
-| N8NDown | n8n HTTP endpoint unreachable for 1 minute | Critical | Fallback delivery |
-
-The gap between InstanceWarning and InstanceDown gives time to investigate before automated action is taken.
+| Alert | Condition | Severity |
+|---|---|---|
+| InstanceWarning | Service unreachable 2 minutes | Warning |
+| InstanceDown | Service unreachable 5 minutes | Critical |
+| HighErrorRate | Error rate > 5% for 5 minutes | Critical |
+| NoTraffic | No requests for 5 minutes | Warning |
+| N8NDown | n8n endpoint unreachable 1 minute | Critical |
 
 ---
 
-## Incident Automation Pipeline
+## Accessing the Infrastructure
 
-Alerts route through n8n which handles enrichment, decision-making, and action.
-
-```
-Alert received from Alertmanager
-    Parse and enrich the payload
-        Add Grafana dashboard URL
-        Add runbook link
-        Map instance to container name
-    Is this alert firing?
-        Yes — Is it critical severity?
-            Yes:
-                Notify Slack with full context
-                Call Docker API to restart the container
-                Wait 30 seconds
-                Query Prometheus API to verify recovery
-                    Recovered → post recovery timeline to Slack
-                    Still down → escalate to critical channel
-            No (warning):
-                Notify Slack
-                No automated action
-        No (resolved):
-            Post resolved notification
+**Jenkins UI (via SSM port forward):**
+```bash
+aws ssm start-session \
+  --target <jenkins-instance-id> \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["8080"],"localPortNumber":["8080"]}'
+# Open http://localhost:8080
 ```
 
-If n8n goes down, Blackbox Exporter detects the failure and Prometheus fires the N8NDown alert. Alertmanager then delivers directly to Slack without passing through n8n.
+**Grafana (via SSM port forward):**
+```bash
+aws ssm start-session \
+  --target <monitoring-instance-id> \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+# Open http://localhost:3000
+```
 
 ---
 
-## Key Design Decisions
+## Deploying
 
-**Why separate Alertmanager from n8n?**
-Alertmanager handles reliability — deduplication, grouping, silencing, delivery guarantees. n8n handles intelligence — enrichment, logic, remediation. Each component does one thing and does it well. If n8n fails, Alertmanager still delivers through the fallback path.
+**Prerequisites:**
+- AWS CLI configured with appropriate IAM permissions
+- Terraform >= 1.5.0
+- Docker
 
-**Why Docker Socket Proxy?**
-Mounting /var/run/docker.sock directly gives a container unrestricted root-level access to the entire Docker daemon. The socket proxy exposes only the specific API endpoints needed — container restart. Principle of least privilege applied to container access.
+**Bootstrap state storage (once):**
+```bash
+aws s3api create-bucket \
+  --bucket mjcastro-devopslab-tfstate \
+  --region eu-central-1 \
+  --create-bucket-configuration LocationConstraint=eu-central-1
 
-**Why Blackbox Exporter for n8n monitoring?**
-n8n does not expose a Prometheus metrics endpoint. Internal scraping would always show the target as down. Blackbox probes the HTTP port directly, detecting failure the same way an external caller would experience it.
+aws s3api put-bucket-versioning \
+  --bucket mjcastro-devopslab-tfstate \
+  --versioning-configuration Status=Enabled
 
-**Why Git SHA tagging?**
-Tags like `latest` tell you nothing about what is running. A Git SHA tells you the exact commit. If a deployment causes an incident, you identify the change in seconds and roll back to the previous SHA.
+aws dynamodb create-table \
+  --table-name terraform-state-lock \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region eu-central-1
+```
 
-**Why dual delivery for critical alerts?**
-n8n delivers enriched contextual notifications. The direct Alertmanager path delivers when n8n is unavailable. Critical alerts should never be silently dropped.
-
----
-
-## AWS Infrastructure with Terraform
-
-Real AWS infrastructure provisioned with Terraform in eu-central-1 Frankfurt.
-
+**Deploy infrastructure:**
 ```bash
 cd terraform
 terraform init
-terraform plan
-terraform apply
-ssh -i ~/.ssh/devopslab ubuntu@$(terraform output -raw ec2_public_ip)
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
-Always run `terraform plan` before `terraform apply`. The plan shows exactly what will change before anything happens.
+**Upload monitoring configs:**
+```bash
+aws s3 sync monitoring/ s3://devopslab-configs-439475769023/monitoring/ \
+  --exclude "secrets/*"
+```
+
+**Destroy when done:**
+```bash
+terraform destroy
+```
 
 ---
 
-## Running the Stack
+## Security Improvements From v1
 
-```bash
-docker compose up -d
-docker compose ps
-curl http://localhost/health
-```
-
-| Service | URL |
-|---|---|
-| Application | http://localhost |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3000 |
-| Alertmanager | http://localhost:9093 |
-| n8n | http://localhost:5678 |
-| Jenkins | http://localhost:8080 |
-| Blackbox | http://localhost:9115 |
+| Area | Before | After |
+|---|---|---|
+| Network | ECS in public subnets, public IPs | ECS in private subnets, no public IPs |
+| Access | SSH port 22 open, static key pairs | SSM Session Manager, zero inbound ports |
+| IAM | Broad permissions, shared roles | 4 scoped roles, ARN-specific policies |
+| Images | Mutable tags, no scanning | Immutable SHA tags, CVE scanning on push |
+| State | Local state file | S3 + DynamoDB, encrypted, versioned |
+| Configs | On dev machine only | S3 + git, reproducible on any deploy |
+| Workflow | Direct pushes to main | Feature branches, documented PRs |
 
 ---
 
-## Testing the Incident Pipeline
+## Trade-offs
 
-```bash
-docker compose stop node-exporter
-```
+**Single NAT Gateway** — Single point of failure for outbound private subnet traffic. Production would use one NAT Gateway per AZ.
 
-4Watch Slack without touching anything else. A warning fires. After the threshold window, a critical alert fires and remediation starts automatically. The container restarts. A health check confirms recovery. A recovery notification posts to Slack with the full incident timeline. No manual intervention.
+**HTTP only** — no HTTPS listener. Requires a domain name for ACM certificate. Production would add port 443 with ACM and redirect 80 → 443.
+
+**Jenkins on t3.micro** — undersized for concurrent builds. Production would use t3.small minimum or migrate to GitHub Actions.
+
+**desired_count = 1** — no ECS task redundancy. Production would run minimum 2 tasks across both AZs.
+
+---
+
+## Roadmap
+
+- **Phase 3** — AWS Infrastructure with Terraform ✅ Complete
+- **Phase 4** — Kubernetes on EKS (planned)
+- **Phase 5** — Ansible for configuration management (planned)
+- **Phase 6** — HTTPS with ACM, custom domain (planned)
+- **Phase 7** — Security hardening, Secrets Manager (planned)
 
 ---
 
@@ -272,65 +261,18 @@ docker compose stop node-exporter
 
 ```
 devops-lab/
-    app/                    FastAPI application and unit tests
-    alertmanager/           Alert routing and fallback configuration
-    prometheus/             Scrape config, blackbox targets, alert rules
-    blackbox/               HTTP probe module configuration
-    nginx/                  Reverse proxy configuration
-    jenkins/                Jenkins image with Docker socket access
-    terraform/              AWS infrastructure as code4
-    notes/                  Architecture decisions and verification guide
-    docker-compose.yml      Full local stack definition
-    docker-compose.cicd.yml Jenkins auxiliary stack
-    Jenkinsfile             CI/CD pipeline stages
+├── app/                    FastAPI application and Dockerfile
+├── monitoring/             Prometheus, Grafana, Alertmanager, n8n configs
+├── terraform/              All infrastructure as code (11 .tf files)
+├── jenkins/                Jenkins configuration
+├── nginx/                  Reverse proxy configuration
+├── docker-compose.yml      Local development stack
+├── Jenkinsfile             CI/CD pipeline definition
+└── README.md               This file
 ```
 
 ---
 
-## Known Limitations
-
-**Single Alertmanager instance** — no high availability. Production fix is a three-node cluster with gossip protocol for state sharing. Planned for Kubernetes migration.
-
-**n8n as automation layer** — lacks guaranteed delivery semantics. Production environments would augment with a managed service like PagerDuty for on-call management.
-
-**Local Terraform state** — works for solo development, fails in team environments. Production fix is remote state in S3 with DynamoDB locking. This is the next Terraform milestone.
-
-**SSH open to 0.0.0.0/0** — acceptable for a lab. Production fix is restricting to specific IPs or using AWS Systems Manager Session Manager with no open port 22.
-
----
-
-## Roadmap
-
-**Phase 1 — CI/CD and Monitoring** ✅ Complete
-
-**Phase 2 — Intelligent Incident Automation** (In progress)
-
-Alert enrichment, automated remediation, escalation paths, and meta-monitoring complete. Incident logging, alert deduplication, Jenkins failure handling, and Jira integration coming next.
-
-**Phase 3 — AWS Infrastructure with Terraform** (In progress)
-
-Core networking and compute provisioned. Remote state, private subnets, NAT Gateway, ECS deployment, and load balancing coming next.
-
-**Phase 4 — Kubernetes** (Planned)
-
-Migrate the full stack to Kubernetes on EKS. Alertmanager HA cluster. CKA certification.
-
-**Phase 5 — Security and Compliance** (Planned)
-
-HashiCorp Vault for secrets management. IAM least privilege hardening. Audit logging.
-
----
-
-## What Building This Taught
-
-Every configuration setting is a deliberate trade-off. Scrape intervals, evaluation windows, group waits — each one affects how fast a failure becomes visible before anyone is paged.
-
-Coming from a background where the response side was the job, building this stack gave visibility into the machine side of MTTD and MTTR. Understanding both sides of that equation changed how I think about observability tools — not just what thresholds to set, but how the full path from failure to awareness to action works, and how to engineer each step deliberately.
-
----
-
-[Architecture Decisions](notes/decisions.md) · [System Verification](notes/verification.md)
-
 Portfolio: https://mjec-explorer.github.io
-
 LinkedIn: https://linkedin.com/in/mjcastro-itops
+GitHub: https://github.com/mjec-explorer/devops-lab
