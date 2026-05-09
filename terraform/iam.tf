@@ -134,11 +134,21 @@ resource "aws_iam_policy" "jenkins" {
       },
       {
         Effect = "Allow"
-        Action = [
-          "iam:PassRole"
+        Action = "iam:PassRole"
+        Resource = [
+          "arn:aws:iam::439475769023:role/devopslab-ecs-execution-role",
+          "arn:aws:iam::439475769023:role/devopslab-ecs-task-role"
         ]
-        Resource = aws_iam_role.ecs_execution.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:WaitUntilServicesStable",
+          "ecs:DescribeClusters"
+        ]
+        Resource = "*"
       }
+
     ]
   })
 }

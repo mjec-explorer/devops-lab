@@ -43,7 +43,7 @@ def health():
 @app.get("/")
 def root():
     return {
-        "project": "From Incidents to Reliability: Building End-to-End Cloud Systems",
+        "project": "From Incidents to Reliability: Building End-to-End Cloud Infrastructure",
         "description": "AWS platform engineering lab simulating production systems with private networking, zero-trust access via SSM, CI/CD deployments, and monitoring with automated incident response",
         "version": os.getenv("GIT_SHA", "unknown"),
         "host": socket.gethostname(),
