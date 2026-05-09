@@ -1,4 +1,5 @@
 # From Incidents to Reliability: Building End-to-End Cloud Infrastructure
+*AWS platform engineering lab focused on secure, reliable, and production-like systems featuring private networking, zero-trust access via SSM, immutable CI/CD deployments, and automated incident response.*
 
 ![AWS](https://img.shields.io/badge/AWS-ECS%20%7C%20ALB%20%7C%20ECR%20%7C%20SSM-orange?logo=amazonaws)
 ![Terraform](https://img.shields.io/badge/Terraform-IaC-purple?logo=terraform)
@@ -8,8 +9,6 @@
 ![Grafana](https://img.shields.io/badge/Grafana-Dashboards-yellow?logo=grafana)
 ![Python](https://img.shields.io/badge/Python-FastAPI-green?logo=python)
 ![n8n](https://img.shields.io/badge/n8n-Automation-pink?logo=n8n)
-
-*AWS platform engineering lab focused on secure, reliable, and production-like systems featuring private networking, zero-trust access via SSM, immutable CI/CD deployments, and automated incident response.*
 
 This project is a hands-on cloud infrastructure lab built to simulate how real systems are designed, deployed, and operated in production not just how they run when everything works.
 
