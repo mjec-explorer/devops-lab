@@ -10,15 +10,13 @@ pipeline {
   }
 
   environment {
-    AWS_REGION            = "eu-central-1"
-    ECR_REGISTRY          = "439475769023.dkr.ecr.eu-central-1.amazonaws.com"
-    IMAGE                 = "439475769023.dkr.ecr.eu-central-1.amazonaws.com/devopslab-app"
-    ECS_CLUSTER           = "devopslab-cluster"
-    ECS_SERVICE           = "devopslab-app"
-    ECS_EXECUTION_ROLE    = "arn:aws:iam::439475769023:role/devopslab-ecs-execution"
-    ALB_DNS               = "devopslab-alb-1455102833.eu-central-1.elb.amazonaws.com"
-    AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
-    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+    AWS_REGION         = "eu-central-1"
+    ECR_REGISTRY       = "439475769023.dkr.ecr.eu-central-1.amazonaws.com"
+    IMAGE              = "439475769023.dkr.ecr.eu-central-1.amazonaws.com/devopslab-app"
+    ECS_CLUSTER        = "devopslab-cluster"
+    ECS_SERVICE        = "devopslab-service"
+    ECS_EXECUTION_ROLE = "arn:aws:iam::439475769023:role/devopslab-ecs-execution-role"
+    ALB_DNS            = "devopslab-alb-70310432.eu-central-1.elb.amazonaws.com"
   }
 
   stages {
@@ -79,6 +77,7 @@ pipeline {
             --cpu 256 \
             --memory 512 \
             --execution-role-arn $ECS_EXECUTION_ROLE \
+            --task-role-arn arn:aws:iam::439475769023:role/devopslab-ecs-task-role \
             --container-definitions '[{
               "name": "app",
               "image": "'"$IMAGE:$GIT_SHA"'",
@@ -94,9 +93,9 @@ pipeline {
               "logConfiguration": {
                 "logDriver": "awslogs",
                 "options": {
-                  "awslogs-group": "/ecs/devopslab-app",
+                  "awslogs-group": "/ecs/devopslab",
                   "awslogs-region": "'"$AWS_REGION"'",
-                  "awslogs-stream-prefix": "ecs"
+                  "awslogs-stream-prefix": "app"
                 }
               }
             }]' \
