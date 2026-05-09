@@ -1,8 +1,23 @@
-# DevOps Lab: Production-Grade AWS Infrastructure with Automated Remediation
+# From Incidents to Reliability: Building End-to-End Cloud Infrastructure
 
-An end-to-end DevOps platform built on AWS, provisioned entirely with Terraform, with a full CI/CD pipeline, observability stack, and intelligent alert automationbuilt from scratch.
+![AWS](https://img.shields.io/badge/AWS-ECS%20%7C%20ALB%20%7C%20ECR%20%7C%20SSM-orange?logo=amazonaws)
+![Terraform](https://img.shields.io/badge/Terraform-IaC-purple?logo=terraform)
+![Docker](https://img.shields.io/badge/Docker-Containers-blue?logo=docker)
+![Jenkins](https://img.shields.io/badge/Jenkins-CI%2FCD-red?logo=jenkins)
+![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-orange?logo=prometheus)
+![Grafana](https://img.shields.io/badge/Grafana-Dashboards-yellow?logo=grafana)
+![Python](https://img.shields.io/badge/Python-FastAPI-green?logo=python)
+![n8n](https://img.shields.io/badge/n8n-Automation-pink?logo=n8n)
 
-Every resource was written, reviewed, broken, debugged, and rebuilt to understand the full lifecycle from infrastructure to incident response.
+*AWS platform engineering lab focused on secure, reliable, and production-like systems featuring private networking, zero-trust access via SSM, immutable CI/CD deployments, and automated incident response.*
+
+This project is a hands-on cloud infrastructure lab built to simulate how real systems are designed, deployed, and operated in production not just how they run when everything works.
+
+It was built from scratch using AWS and Terraform, with a full CI/CD pipeline, observability stack, and automated alerting and remediation workflows.
+
+Every component was intentionally tested under failure following a continuous loop of **build → review → rebuild → learn** to understand how systems behave under pressure and how to recover them.
+
+The first version worked. The second version was rebuilt with security, reliability, and recoverability in mind.
 
 ---
 
@@ -112,7 +127,7 @@ Pipeline stages:
 
 ```
 1. Checkout         Pull source code from GitHub
-2. Unit Tests       Build test image, run pytest (optional)
+2. Unit Tests       Build test image, run pytest 
 3. Build Image      Multi-stage Docker build
 4. Push to ECR      Tag with Git SHA, push to ECR
 5. Deploy to ECS    Register new task definition, update service
