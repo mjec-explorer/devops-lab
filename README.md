@@ -1,8 +1,8 @@
-# DevOps Lab — Production-Grade AWS Infrastructure with Automated Remediation
+# DevOps Lab: Production-Grade AWS Infrastructure with Automated Remediation
 
-An end-to-end DevOps platform built on AWS, provisioned entirely with Terraform, with a full CI/CD pipeline, observability stack, and intelligent alert automation.
+An end-to-end DevOps platform built on AWS, provisioned entirely with Terraform, with a full CI/CD pipeline, observability stack, and intelligent alert automationbuilt from scratch.
 
-Built from scratch — not from a tutorial. Every resource was written, reviewed, broken, debugged, and rebuilt to understand the full lifecycle from infrastructure to incident response.
+Every resource was written, reviewed, broken, debugged, and rebuilt to understand the full lifecycle from infrastructure to incident response.
 
 ---
 
@@ -14,20 +14,20 @@ Built from scratch — not from a tutorial. Every resource was written, reviewed
                     Internet Gateway
                             │
               ┌─────────────────────────────┐
-              │         VPC 10.0.0.0/16      │
-              │      eu-central-1 Frankfurt  │
+              │         VPC 10.0.0.0/16     │
+              │      eu-central-1 Frankfurt │
               │                             │
-              │  ┌──── Public Subnets ────┐  │
-              │  │  ALB    NAT Gateway    │  │
-              │  └────────────────────────┘  │
+              │  ┌──── Public Subnets ────┐ │
+              │  │  ALB    NAT Gateway    │ │
+              │  └────────────────────────┘ │
               │             │               │
-              │  ┌──── Private Subnets ───┐  │
-              │  │                        │  │
-              │  │  ECS Fargate (FastAPI) │  │
-              │  │  Jenkins EC2           │  │
-              │  │  Monitoring EC2        │  │
-              │  │                        │  │
-              │  └────────────────────────┘  │
+              │  ┌──── Private Subnets ───┐ │
+              │  │                        │ │
+              │  │  ECS Fargate (FastAPI) │ │
+              │  │  Jenkins EC2           │ │
+              │  │  Monitoring EC2        │ │
+              │  │                        │ │
+              │  └────────────────────────┘ │
               └─────────────────────────────┘
                             │
               ┌─────────────────────────────┐
@@ -60,10 +60,10 @@ Built from scratch — not from a tutorial. Every resource was written, reviewed
 ## Key Architectural Decisions
 
 **Private subnets for all workloads**
-ECS tasks, Jenkins, and Monitoring EC2 all run in private subnets with no public IPs. The only way into the application is through the ALB. Attack surface is minimal — even if a private IP is discovered, there is no route in from the internet.
+ECS tasks, Jenkins, and Monitoring EC2 all run in private subnets with no public IPs. The only way into the application is through the ALB. Attack surface is minimal even if a private IP is discovered, there is no route in from the internet.
 
 **SSM Session Manager replaces SSH**
-Jenkins and Monitoring EC2 have zero inbound security group rules. Access is through AWS Systems Manager Session Manager — IAM-controlled, no open ports, every session logged to CloudWatch. Static SSH keys are eliminated entirely.
+Jenkins and Monitoring EC2 have zero inbound security group rules. Access is through AWS Systems Manager Session Manager; IAM-controlled, no open ports, every session logged to CloudWatch. Static SSH keys are eliminated entirely.
 
 **Immutable ECR image tags**
 Every image is tagged with the Git commit SHA. Tags cannot be overwritten. If a deployment causes an incident, the exact commit is traceable in seconds. Rolling back means deploying the previous SHA.
@@ -106,7 +106,7 @@ terraform/
 
 ## CI/CD Pipeline
 
-Jenkins runs on EC2 in a private subnet. Accessed via SSM port forwarding — no open ports, no public IP.
+Jenkins runs on EC2 in a private subnet. Accessed via SSM port forwarding with no open ports, no public IP.
 
 Pipeline stages:
 
@@ -120,7 +120,7 @@ Pipeline stages:
 7. Health check     Verify /health endpoint via ALB
 ```
 
-Jenkins uses the EC2 IAM instance profile — no static AWS credentials stored anywhere.
+Jenkins uses the EC2 IAM instance profile with no static AWS credentials stored anywhere.
 
 ---
 
@@ -128,7 +128,7 @@ Jenkins uses the EC2 IAM instance profile — no static AWS credentials stored a
 
 Runs on a dedicated EC2 in a private subnet. Accessed via SSM port forwarding.
 
-**Prometheus** scrapes ECS tasks via AWS service discovery — automatically finds new tasks when they start or are replaced. No manual target configuration needed.
+**Prometheus** scrapes ECS tasks via AWS service discovery and automatically finds new tasks when they start or are replaced. No manual target configuration needed.
 
 **Grafana** visualises request rate, error rate, P95 latency, and infrastructure metrics.
 
@@ -136,7 +136,7 @@ Runs on a dedicated EC2 in a private subnet. Accessed via SSM port forwarding.
 
 **n8n** enriches alerts, attempts container restart via Docker API, verifies recovery, and escalates if recovery fails.
 
-**Blackbox Exporter** probes HTTP endpoints externally — catches scenarios where a service is running but not responding.
+**Blackbox Exporter** probes HTTP endpoints externally and catches scenarios where a service is running but not responding.
 
 ---
 
@@ -248,8 +248,16 @@ terraform destroy
 ---
 
 ## Roadmap
-
-- **Phase 3** — AWS Infrastructure with Terraform ✅ Complete
+- **Phase 1** — CI/CD Pipeline 
+          ✅ Complete
+          Jenkins, Docker, GitHub, SHA tagging, health check gate
+- **Phase 2** — Observability and Incident Automation 
+          ✅ Complete
+          Prometheus, Grafana, Alertmanager, n8n, Blackbox,
+          auto-remediation, fallback delivery
+- **Phase 3** — AWS Infrastructure with Terraform 
+          ✅ Complete
+          VPC, ECS Fargate, ALB, ECR, SSM, IAM, S3, Multi-AZ
 - **Phase 4** — Kubernetes on EKS (planned)
 - **Phase 5** — Ansible for configuration management (planned)
 - **Phase 6** — HTTPS with ACM, custom domain (planned)
@@ -265,7 +273,6 @@ devops-lab/
 ├── monitoring/             Prometheus, Grafana, Alertmanager, n8n configs
 ├── terraform/              All infrastructure as code (11 .tf files)
 ├── jenkins/                Jenkins configuration
-├── nginx/                  Reverse proxy configuration
 ├── docker-compose.yml      Local development stack
 ├── Jenkinsfile             CI/CD pipeline definition
 └── README.md               This file
