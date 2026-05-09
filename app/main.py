@@ -42,7 +42,24 @@ def health():
 
 @app.get("/")
 def root():
-    return {"message": "Hello from my DevOps Lab!"}
+    return {
+        "project": "From Incidents to Reliability: Building End-to-End Cloud Systems",
+        "description": "AWS platform engineering lab simulating production systems with private networking, zero-trust access via SSM, CI/CD deployments, and monitoring with automated incident response",
+        "version": os.getenv("GIT_SHA", "unknown"),
+        "host": socket.gethostname(),
+        "stack": {
+            "infrastructure": "AWS ECS Fargate, ALB, VPC, ECR, SSM",
+            "cicd": "Jenkins on EC2, SHA-tagged immutable images",
+            "observability": "Prometheus, Grafana, Alertmanager, n8n",
+            "access": "AWS SSM Session Manager, zero inbound ports, IAM-controlled"
+        },
+        "endpoints": {
+            "health": "/health",
+            "metrics": "/metrics",
+            "version": "/version"
+        },
+        "repository": "https://github.com/mjec-explorer/devops-lab"
+    }
 
 @app.get("/metrics")
 def metrics():
