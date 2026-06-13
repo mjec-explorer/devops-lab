@@ -16,7 +16,7 @@ pipeline {
     ECS_CLUSTER        = "devopslab-cluster"
     ECS_SERVICE        = "devopslab-service"
     ECS_EXECUTION_ROLE = "arn:aws:iam::439475769023:role/devopslab-ecs-execution-role"
-    ALB_DNS            = "devopslab-alb-70310432.eu-central-1.elb.amazonaws.com"
+    ALB_DNS            = "devopslab-alb-1642977760.eu-central-1.elb.amazonaws.com"
   }
 
   stages {
