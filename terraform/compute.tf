@@ -8,7 +8,7 @@ resource "aws_instance" "jenkins" {
   user_data = <<-EOF
     #!/bin/bash
     apt-get update -y
-    apt-get install -y ca-certificates curl gnupg unzip wget openjdk-17-jdk
+    apt-get install -y ca-certificates curl gnupg unzip wget openjdk-21-jdk
 
     # Install Docker official way
     install -m 0755 -d /etc/apt/keyrings
@@ -29,9 +29,9 @@ resource "aws_instance" "jenkins" {
 
     # Install Jenkins
     wget -O /usr/share/keyrings/jenkins-keyring.asc \
-      https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+      https://pkg.jenkins.io/debian/jenkins.io-2023.key
     echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-      https://pkg.jenkins.io/debian-stable binary/" | \
+      https://pkg.jenkins.io/debian binary/" | \
       tee /etc/apt/sources.list.d/jenkins.list > /dev/null
     apt-get update -y
     apt-get install -y jenkins
@@ -41,6 +41,7 @@ resource "aws_instance" "jenkins" {
     systemctl enable jenkins
 
     # Install AWS CLI v2
+    apt-get install -y unzip
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
     unzip awscliv2.zip
     ./aws/install
